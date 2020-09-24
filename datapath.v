@@ -1,9 +1,11 @@
-module fetch (input zero, rst, clk, branch, input [31:0] sigext, output [31:0] inst);
+module fetch (input zero, rst, clk, brancheq, branchlt, branchgte, neg,
+              input [31:0] sigext, 
+              output [31:0] inst);
   
   wire [31:0] pc, pc_4, new_pc;
 
   assign pc_4 = 4 + pc; // pc+4  Adder
-  assign new_pc = (branch & zero) ? pc_4 + sigext : pc_4; // new PC Mux
+  assign new_pc = ((brancheq & zero) || (branchlt & neg) || (branchgte & !neg)) ? pc_4 + sigext : pc_4; // new PC Mux
 
   PC program_counter(new_pc, clk, rst, pc);
 
@@ -16,6 +18,21 @@ module fetch (input zero, rst, clk, branch, input [31:0] sigext, output [31:0] i
     inst_mem[0] <= 32'h00000000; // nop
     inst_mem[1] <= 32'h00500113; // addi x2, x0, 5  ok
     inst_mem[2] <= 32'h00210233; // add  x4, x2, x2  ok
+    
+    //inst_mem[3] <= 32'h00208273; // ss x1, x2, 4 OK
+    //inst_mem[3] <= 32'h00110773 ; // ss x2, x1, 14
+    
+    inst_mem[3] <= 32'h00218473 ; // ss x3, x2, 8  
+    inst_mem[4] <= 32'h0001A283;  // lw x5, 0(x3)
+    
+    //inst_mem[3] <= 32'h00210563; // beq x2,x2,50 OK
+    //inst_mem[3] <= 32'h00224563; // blt x4,x2,50 OK
+    //inst_mem[3] <= 32'h00414563; // blt x2,x4,50 OK
+    //inst_mem[3] <= 32'h00214563; // blt x2,x2,50 OK
+    //inst_mem[3] <= 32'h00215563; // bge x2,x2,50 OK
+    //inst_mem[3] <= 32'h00225563; // bge x4,x2,50 OK
+    //inst_mem[3] <= 32'h00415563; // bge x2,x4,50 OK
+
     //inst_mem[1] <= 32'h00202223; // sw x2, 8(x0) ok
     //inst_mem[1] <= 32'h0050a423; // sw x5, 8(x1) ok
     //inst_mem[2] <= 32'h0000a003; // lw x1, x0(0) ok
@@ -36,12 +53,22 @@ module PC (input [31:0] pc_in, input clk, rst, output reg [31:0] pc_out);
 
 endmodule
 
-module decode (input [31:0] inst, writedata, input clk, output [31:0] data1, data2, ImmGen, output alusrc, memread, memwrite, memtoreg, branch, output [1:0] aluop, output [9:0] funct);
+module decode (input [31:0] inst, writedata, 
+               input clk, 
+               output [31:0] data1, data2, ImmGen, 
+               output alusrc, memread, memwrite, memtoreg, 
+               output ssalu, ssmemadr, ssmemwrite,
+               output brancheq, branchlt, branchgte,
+               output [1:0] aluop, 
+               output [9:0] funct);
   
-  wire branch, memread, memtoreg, MemWrite, alusrc, regwrite;
+  wire brancheq, branchlt, branchgte;
+  wire ssalu, ssmemadr, ssmemwrite;
+  wire memread, memtoreg, MemWrite, alusrc, regwrite;
   wire [1:0] aluop; 
   wire [4:0] writereg, rs1, rs2, rd;
   wire [6:0] opcode;
+  wire [2:0] funct3;
   wire [9:0] funct;
   wire [31:0] ImmGen;
 
@@ -50,14 +77,25 @@ module decode (input [31:0] inst, writedata, input clk, output [31:0] data1, dat
   assign rs2    = inst[24:20];
   assign rd     = inst[11:7];
   assign funct = {inst[31:25],inst[14:12]};
+  assign funct3 = {inst[14:12]};
 
-  ControlUnit control (opcode, inst, alusrc, memtoreg, regwrite, memread, memwrite, branch, aluop, ImmGen);
+  ControlUnit control (opcode, inst, funct3, alusrc, 
+                       memtoreg, regwrite, memread, memwrite, 
+                       ssalu, ssmemadr, ssmemwrite,
+                       brancheq, branchlt, branchgte, aluop, ImmGen);
   
   Register_Bank Registers (clk, regwrite, rs1, rs2, rd, writedata, data1, data2); 
 
 endmodule
 
-module ControlUnit (input [6:0] opcode, input [31:0] inst, output reg alusrc, memtoreg, regwrite, memread, memwrite, branch, output reg [1:0] aluop, output reg [31:0] ImmGen);
+module ControlUnit (input [6:0] opcode, 
+                    input [31:0] inst,
+                    input [2:0] funct3,
+                    output reg alusrc, memtoreg, regwrite, memread, memwrite,
+                    output reg ssalu, ssmemadr, ssmemwrite,
+                    output reg brancheq, branchlt, branchgte,
+                    output reg [1:0] aluop, 
+                    output reg [31:0] ImmGen);
 
   always @(opcode) begin
     alusrc   <= 0;
@@ -65,7 +103,12 @@ module ControlUnit (input [6:0] opcode, input [31:0] inst, output reg alusrc, me
     regwrite <= 0;
     memread  <= 0;
     memwrite <= 0;
-    branch   <= 0;
+    ssalu <= 0;
+    ssmemadr <= 0;
+    ssmemwrite <= 0;
+    brancheq <= 0;
+    branchlt <= 0;
+    branchgte <= 0;
     aluop    <= 0;
     ImmGen   <= 0; 
     case(opcode) 
@@ -74,9 +117,24 @@ module ControlUnit (input [6:0] opcode, input [31:0] inst, output reg alusrc, me
         aluop    <= 2;
 			end
 		  7'b1100011: begin // beq == 99
-        branch   <= 1;
-        aluop    <= 1;
-        ImmGen   <= {{19{inst[31]}},inst[31],inst[7],inst[30:25],inst[11:8],1'b0};
+        case (funct3)
+          3'b000: begin
+            brancheq <= 1;
+            aluop    <= 1;
+            ImmGen   <= {{19{inst[31]}},inst[31],inst[7],inst[30:25],inst[11:8],1'b0};
+          end
+          3'b100: begin
+            branchlt <= 1;
+            aluop    <= 1;
+            ImmGen   <= {{19{inst[31]}},inst[31],inst[7],inst[30:25],inst[11:8],1'b0};
+          end
+          3'b101: begin
+            branchgte <= 1;
+            brancheq <= 1;
+            aluop    <= 1;
+            ImmGen   <= {{19{inst[31]}},inst[31],inst[7],inst[30:25],inst[11:8],1'b0};
+          end
+        endcase
 			end
 			7'b0010011: begin // addi == 19
         alusrc   <= 1;
@@ -95,12 +153,22 @@ module ControlUnit (input [6:0] opcode, input [31:0] inst, output reg alusrc, me
         memwrite <= 1;
         ImmGen   <= {{20{inst[31]}},inst[31:25],inst[11:7]};
       end
+      7'b1110011: begin // ss = 115
+        ssalu <= 1;
+        ssmemadr <= 1;
+        ssmemwrite <= 1;
+        memwrite <= 1;
+        ImmGen   <= {{20{inst[31]}},inst[31:25],inst[11:7]};
+      end
     endcase
   end
 
 endmodule 
 
-module Register_Bank (input clk, regwrite, input [4:0] read_reg1, read_reg2, writereg, input [31:0] writedata, output [31:0] read_data1, read_data2);
+module Register_Bank (input clk, regwrite, 
+                      input [4:0] read_reg1, read_reg2, writereg, 
+                      input [31:0] writedata, 
+                      output [31:0] read_data1, read_data2);
 
   integer i;
   reg [31:0] memory [0:31]; // 32 registers de 32 bits cada
@@ -121,15 +189,24 @@ module Register_Bank (input clk, regwrite, input [4:0] read_reg1, read_reg2, wri
   
 endmodule
 
-module execute (input [31:0] in1, in2, ImmGen, input alusrc, input [1:0] aluop, input [9:0] funct, output zero, output [31:0] aluout);
+module execute (input [31:0] in1, in2, ImmGen, 
+                input alusrc, 
+                input [1:0] aluop, 
+                input [9:0] funct,
+                input ssalu,
+                output zero, 
+                output [31:0] aluout,
+                output neg);
 
   wire [31:0] alu_B;
+  wire [31:0] alu_A;
   wire [3:0] aluctrl;
   
-  assign alu_B = (alusrc) ? ImmGen : in2 ;
+  assign alu_B = (alusrc) ? ImmGen : in2;
+  assign alu_A = (ssalu) ? ImmGen : in1;
 
   //Unidade Lógico Aritimética
-  ALU alu (aluctrl, in1, alu_B, aluout, zero);
+  ALU alu (aluctrl, alu_A, alu_B, aluout, zero, neg);
 
   alucontrol alucontrol (aluop, funct, aluctrl);
 
@@ -151,6 +228,7 @@ module alucontrol (input [1:0] aluop, input [9:0] funct, output reg [3:0] alucon
         case (funct3)
           0: alucontrol <= (funct7 == 0) ? /*ADD*/ 4'd2 : /*SUB*/ 4'd6; 
           2: alucontrol <= 4'd7; // SLT
+          4: alucontrol <= (funct7 == 99) ? /*SLT*/ 4'd6 : /*XOR*/ 4'd4;
           6: alucontrol <= 4'd1; // OR
           //39: alucontrol <= 4'd12; // NOR
           7: alucontrol <= 4'd0; // AND
@@ -161,15 +239,21 @@ module alucontrol (input [1:0] aluop, input [9:0] funct, output reg [3:0] alucon
   end
 endmodule
 
-module ALU (input [3:0] alucontrol, input [31:0] A, B, output reg [31:0] aluout, output zero);
+module ALU (input [3:0] alucontrol, 
+            input [31:0] A, B, 
+            output reg [31:0] aluout, 
+            output zero,
+            output neg);
   
   assign zero = (aluout == 0); // Zero recebe um valor lógico caso aluout seja igual a zero.
+  assign neg = (A < B);   // Neg recebe um valor lógico caso aluout seja negativo.
   
   always @(alucontrol, A, B) begin
       case (alucontrol)
         0: aluout <= A & B; // AND
         1: aluout <= A | B; // OR
         2: aluout <= A + B; // ADD
+        4: aluout <= A ^ B; // XOR
         6: aluout <= A - B; // SUB
         //7: aluout <= A < B ? 32'd1:32'd0; //SLT
         //12: aluout <= ~(A | B); // NOR
@@ -178,10 +262,15 @@ module ALU (input [3:0] alucontrol, input [31:0] A, B, output reg [31:0] aluout,
   end
 endmodule
 
-module memory (input [31:0] address, writedata, input memread, memwrite, clk, output [31:0] readdata);
+module memory (input [31:0] aluout, data1, writedataSW,
+               input memread, memwrite, clk, 
+               input ssmemadr, ssmemwrite,
+               output [31:0] readdata);
 
   integer i;
   reg [31:0] memory [0:127]; 
+	wire [31:0] writedata;
+
   
   // fill the memory
   initial begin
@@ -189,11 +278,14 @@ module memory (input [31:0] address, writedata, input memread, memwrite, clk, ou
       memory[i] <= i;
   end
 
-  assign readdata = (memread) ? memory[address[31:2]] : 0;
+  assign readdata = (memread) ? memory[aluout[31:2]] : 0;
+  assign writedata = (ssmemwrite) ? aluout : writedataSW;
 
   always @(posedge clk) begin
-    if (memwrite)
-      memory[address[31:2]] <= writedata;
+    if (memwrite & ssmemadr)
+      memory[data1[31:2]] <= writedata;
+    if (memwrite & !ssmemadr)
+      memory[aluout[31:2]] <= writedata;
 	end
 endmodule
 
@@ -208,20 +300,24 @@ module mips (input clk, rst, output [31:0] writedata);
   
   wire [31:0] inst, sigext, data1, data2, aluout, readdata;
   wire zero, memread, memwrite, memtoreg, branch, alusrc;
+  wire ssalu, ssmemadr, ssmemwrite;
   wire [9:0] funct;
   wire [1:0] aluop;
   
   // FETCH STAGE
-  fetch fetch (zero, rst, clk, branch, sigext, inst);
+  fetch fetch (zero, rst, clk, brancheq, branchlt, branchgte, neg, sigext, inst);
   
   // DECODE STAGE
-  decode decode (inst, writedata, clk, data1, data2, sigext, alusrc, memread, memwrite, memtoreg, branch, aluop, funct);   
+  decode decode (inst, writedata, clk, data1, data2, sigext, alusrc, 
+                 memread, memwrite, memtoreg, 
+                 ssalu, ssmemadr, ssmemwrite, 
+                 brancheq, branchlt, branchgte, aluop, funct);   
   
   // EXECUTE STAGE
-  execute execute (data1, data2, sigext, alusrc, aluop, funct, zero, aluout);
+  execute execute (data1, data2, sigext, alusrc, aluop, funct, ssalu, zero, aluout, neg);
 
   // MEMORY STAGE
-  memory memory (aluout, data2, memread, memwrite, clk, readdata);
+  memory memory (aluout, data1, data2, memread, memwrite, clk, ssmemadr, ssmemwrite, readdata);
 
   // WRITEBACK STAGE
   writeback writeback (aluout, readdata, memtoreg, writedata);
