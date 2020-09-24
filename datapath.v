@@ -18,6 +18,7 @@ module fetch (input zero, rst, clk, brancheq, branchlt, neg,
     inst_mem[0] <= 32'h00000000; // nop
     inst_mem[1] <= 32'h00500113; // addi x2, x0, 5  ok
     inst_mem[2] <= 32'h00210233; // add  x4, x2, x2  ok
+    // inst_mem[3] <= 32'h00210563; // beq x2,x2,50 ok
     inst_mem[3] <= 32'h00414563; // blt x2,x4,50 ok
     //inst_mem[1] <= 32'h00202223; // sw x2, 8(x0) ok
     //inst_mem[1] <= 32'h0050a423; // sw x5, 8(x1) ok
