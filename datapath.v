@@ -1,11 +1,11 @@
-module fetch (input zero, rst, clk, brancheq, branchlt, neg, 
+module fetch (input zero, rst, clk, brancheq, branchlt, branchgte, neg,
               input [31:0] sigext, 
               output [31:0] inst);
   
   wire [31:0] pc, pc_4, new_pc;
 
   assign pc_4 = 4 + pc; // pc+4  Adder
-  assign new_pc = ((brancheq & zero) || (branchlt & neg)) ? pc_4 + sigext : pc_4; // new PC Mux
+  assign new_pc = ((brancheq & zero) || (branchlt & neg) || (branchgte & !neg)) ? pc_4 + sigext : pc_4; // new PC Mux
 
   PC program_counter(new_pc, clk, rst, pc);
 
@@ -18,8 +18,15 @@ module fetch (input zero, rst, clk, brancheq, branchlt, neg,
     inst_mem[0] <= 32'h00000000; // nop
     inst_mem[1] <= 32'h00500113; // addi x2, x0, 5  ok
     inst_mem[2] <= 32'h00210233; // add  x4, x2, x2  ok
-    // inst_mem[3] <= 32'h00210563; // beq x2,x2,50 ok
-    inst_mem[3] <= 32'h00414563; // blt x2,x4,50 ok
+    
+    //inst_mem[3] <= 32'h00210563; // beq x2,x2,50 OK
+    //inst_mem[3] <= 32'h00224563; // blt x4,x2,50 OK
+    //inst_mem[3] <= 32'h00414563; // blt x2,x4,50 OK
+    //inst_mem[3] <= 32'h00214563; // blt x2,x2,50 OK
+    inst_mem[3] <= 32'h00215563; // bge x2,x2,50 OK
+    //inst_mem[3] <= 32'h00225563; // bge x4,x2,50 OK
+    //inst_mem[3] <= 32'h00415563; // bge x2,x4,50 OK
+
     //inst_mem[1] <= 32'h00202223; // sw x2, 8(x0) ok
     //inst_mem[1] <= 32'h0050a423; // sw x5, 8(x1) ok
     //inst_mem[2] <= 32'h0000a003; // lw x1, x0(0) ok
@@ -43,11 +50,13 @@ endmodule
 module decode (input [31:0] inst, writedata, 
                input clk, 
                output [31:0] data1, data2, ImmGen, 
-               output alusrc, memread, memwrite, memtoreg, brancheq, branchlt,
+               output alusrc, memread, memwrite, memtoreg, 
+               output brancheq, branchlt, branchgte,
                output [1:0] aluop, 
                output [9:0] funct);
   
-  wire brancheq, branchlt, memread, memtoreg, MemWrite, alusrc, regwrite;
+  wire brancheq, branchlt, branchgte;
+  wire memread, memtoreg, MemWrite, alusrc, regwrite;
   wire [1:0] aluop; 
   wire [4:0] writereg, rs1, rs2, rd;
   wire [6:0] opcode;
@@ -62,7 +71,9 @@ module decode (input [31:0] inst, writedata,
   assign funct = {inst[31:25],inst[14:12]};
   assign funct3 = {inst[14:12]};
 
-  ControlUnit control (opcode, inst, funct3, alusrc, memtoreg, regwrite, memread, memwrite, brancheq, branchlt, aluop, ImmGen);
+  ControlUnit control (opcode, inst, funct3, alusrc, 
+                       memtoreg, regwrite, memread, memwrite, 
+                       brancheq, branchlt, branchgte, aluop, ImmGen);
   
   Register_Bank Registers (clk, regwrite, rs1, rs2, rd, writedata, data1, data2); 
 
@@ -71,7 +82,8 @@ endmodule
 module ControlUnit (input [6:0] opcode, 
                     input [31:0] inst,
                     input [2:0] funct3,
-                    output reg alusrc, memtoreg, regwrite, memread, memwrite, brancheq, branchlt, 
+                    output reg alusrc, memtoreg, regwrite, memread, memwrite,
+                    output reg brancheq, branchlt, branchgte,
                     output reg [1:0] aluop, 
                     output reg [31:0] ImmGen);
 
@@ -83,6 +95,7 @@ module ControlUnit (input [6:0] opcode,
     memwrite <= 0;
     brancheq <= 0;
     branchlt <= 0;
+    branchgte <= 0;
     aluop    <= 0;
     ImmGen   <= 0; 
     case(opcode) 
@@ -99,6 +112,12 @@ module ControlUnit (input [6:0] opcode,
           end
           3'b100: begin
             branchlt <= 1;
+            aluop    <= 1;
+            ImmGen   <= {{19{inst[31]}},inst[31],inst[7],inst[30:25],inst[11:8],1'b0};
+          end
+          3'b101: begin
+            branchgte <= 1;
+            brancheq <= 1;
             aluop    <= 1;
             ImmGen   <= {{19{inst[31]}},inst[31],inst[7],inst[30:25],inst[11:8],1'b0};
           end
@@ -256,10 +275,10 @@ module mips (input clk, rst, output [31:0] writedata);
   wire [1:0] aluop;
   
   // FETCH STAGE
-  fetch fetch (zero, rst, clk, brancheq, branchlt, neg, sigext, inst);
+  fetch fetch (zero, rst, clk, brancheq, branchlt, branchgte, neg, sigext, inst);
   
   // DECODE STAGE
-  decode decode (inst, writedata, clk, data1, data2, sigext, alusrc, memread, memwrite, memtoreg, brancheq, branchlt, aluop, funct);   
+  decode decode (inst, writedata, clk, data1, data2, sigext, alusrc, memread, memwrite, memtoreg, brancheq, branchlt, branchgte, aluop, funct);   
   
   // EXECUTE STAGE
   execute execute (data1, data2, sigext, alusrc, aluop, funct, zero, aluout, neg);
