@@ -17,9 +17,12 @@ usaria como endereço.
 
 Para codificação da instrução em si, considerando que ela não existe no RISC-V padrão, pegou-se a formatação da instrução
 de store, que possui dois campos de registrador de origem e um campo para o imediato. 
-O funct7 escolhido foi 1110011, que é o do ADD com um 1 no primeiro dígito. Esse funct7 não define 
+O funct7 (opcode) escolhido foi 1110011, que é o do ADD com um 1 no primeiro dígito. Esse funct7 não define 
 quaisquer funções do TP ou do datapath então isso facilita a implementação, já que evita conflitos. 
 O funct3 é 000, apesar de ele não ser relevante para a decodificação da instrução. 
+
+![Formatação Instrução](https://i.imgur.com/KB3Ec2l.png)
+
 
 
 ## Problema 7 - BLT
