@@ -8,7 +8,7 @@ Pablo Correa Costa - 2017014774
 Renato Reis Brasil - 2013031127
 
 
-## Problema 1 - ORI - Bitwise or immediate
+## Problema 1 - ORI - Bitwise or Immediate
 ORI é a operação lógica OR bitwise com um registrador e um imediato. A instrução é do tipo I, isto é, [31:20] bits do imediato, [19:15] do registrador rs1,[14:12] do funct3, [11:7] do registrador de destino e [6:0] do opcode. O opcode é 0010011 e o funct3 110.
 
 Para esta instrução alteramos o módulo decode criando um caso para o funct3 110 uma vez que a instrução do addi já existe na especificação e ela possui os mesmo opcode de ORI. A alteração criada é exatamente para implementar a operação lógica OR sobre um imediato.
