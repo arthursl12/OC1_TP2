@@ -3,7 +3,19 @@
 ## Integrantes
 Arthur Souto Lima - 2018055113
 
+Pablo Correa Costa - 2017014774
+
 Renato Reis Brasil - 2013031127
+
+
+## Problema 1 - ORI - Bitwise or immediate
+ORI é a operação lógica OR bitwise com um registrador e um imediato. A instrução é do tipo I, isto é, [31:20] bits do imediato, [19:15] do registrador rs1,[14:12] do funct3, [11:7] do registrador de destino e [6:0] do opcode. O opcode é 0010011 e o funct3 110.
+
+Para esta instrução alteramos o módulo decode criando um caso para o funct3 110 uma vez que a instrução do addi já existe na especificação e ela possui os mesmo opcode de ORI. A alteração criada é exatamente para implementar a operação lógica OR sobre um imediato.
+
+## Problema 2 - SLLI - Shift Left Logical Immediate
+A instrução SLLI é do tipo I. O operando que será shiftado está no registrador rs1 e a quantidade que ele será shiftado é igual aos últimos 5 bits do imediato (lower bits).
+Sendo assim, precisamos identificar os 5 lower bits do immediato e deslocar o registrador com esse número em 0s. A identificação se dá por: ImmGen <= {inst[24:20], 1'b0}. O opcode da operação é 0010011. E o funct 3  = 001.
 
 ## Problema 3 - Load Upper Immediate
 Para essa intrução foi criado um fio que liga o ImmGen diretamente ao banco de registradores. Além disso foi criado um bit de controle para definir se o valor a ser escrito no banco de registradores vai vir da entrada writedata ou da recém-criada ImmGen.
@@ -17,6 +29,8 @@ As operações básicas de soma e leitura na memória já estão implementadas. 
 
 A intrução tem um formato parecido com o tipo S, com a diferença de que nos bits 11:7, em vez de conter o valor imediato, colocamos o registrador de destino. O opcode escolhido foi 0000111.
 
+## Problema 5 - SWAP
+A instrução de swap envolve atribuição do valor de um registrador rs1 a um registrador rs2 e vice versa. Existe uma instrução que faz basicamente isso no RISC-V: a instrução de swap da AMO( Atomic Memory Operands), que carrega o dado do endereço de rs1, salva o valor no registrador rd e passa para rs2 e depois salva de volta o valor presente em rs2 em rs1. Essa instrução é do tipo R, logo será definida pelo funct3 na implementacao = 001 e funct5 = 00001 (AMOSWAP.W). Para isso, tivemos que acrescentar o caso em que a funct5 define a operação no módulo de control unit.
 
 ## Problema 6 - Store Sum
 A implementação dessa instrução exigiu três novos bits de controle, que são 0 para as demais instruções e 
