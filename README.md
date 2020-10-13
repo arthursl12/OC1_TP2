@@ -30,7 +30,7 @@ As operações básicas de soma e leitura na memória já estão implementadas. 
 A intrução tem um formato parecido com o tipo S, com a diferença de que nos bits 11:7, em vez de conter o valor imediato, colocamos o registrador de destino. O opcode escolhido foi 0000111.
 
 ## Problema 5 - SWAP
-A instrução de swap envolve atribuição do valor de um registrador rs1 a um registrador rs2 e vice versa. Existe uma instrução que faz basicamente isso no RISC-V: a instrução de swap da AMO( Atomic Memory Operands), que carrega o dado do endereço de rs1, salva o valor no registrador rd e passa para rs2 e depois salva de volta o valor presente em rs2 em rs1. Essa instrução é do tipo R, logo será definida pelo funct3 na implementacao = 001 e funct5 = 00001 (AMOSWAP.W). Para isso, tivemos que acrescentar o caso em que a funct5 define a operação no módulo de control unit.
+A instrução de swap envolve atribuição do valor de um registrador rs1 a um registrador rs2 e vice versa. Existe uma instrução que faz basicamente isso no RISC-V: a instrução de swap da AMO( Atomic Memory Operands), que carrega o dado do endereço de rs1, salva o valor no registrador rd e passa para rs2 e depois salva de volta o valor presente em rs2 em rs1. Essa instrução é do tipo R, logo será definida pelo funct3 na implementação = 001 e funct5 = 00001 (AMOSWAP.W). Para isso, tivemos que acrescentar o caso em que a funct5 define a operação no módulo de control unit.
 
 ## Problema 6 - Store Sum
 A implementação dessa instrução exigiu três novos bits de controle, que são 0 para as demais instruções e 
