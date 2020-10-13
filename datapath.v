@@ -181,7 +181,7 @@ module ControlUnit (input [6:0] opcode,
       end
       7'b1101111: begin // jump
         branchnc <= 1;
-        ImmGen   <= {{20{inst[31]}},inst[10:1],inst[11],inst[19:12]};
+        ImmGen   <= {{12{inst[31]}},inst[19:12],inst[31:20]};
       end
       7'b0100011: begin // sw == 35
         alusrc   <= 1;
