@@ -19,6 +19,7 @@ module fetch (input zero, rst, clk, brancheq, branchlt, branchgte, neg,
     inst_mem[1] <= 32'h00500113; // addi x2, x0, 5  ok
     inst_mem[2] <= 32'h00210233; // add  x4, x2, x2  ok
     inst_mem[3] <= 32'h00410287; // lwi x5, x2, x4 = lwi x5, 5, 10
+    inst_mem[4] <= 32'hE3B392B7; // lui 
     
     //inst_mem[3] <= 32'h00208273; // ss x1, x2, 4 OK
     //inst_mem[3] <= 32'h00110773 ; // ss x2, x1, 14
@@ -68,6 +69,7 @@ module decode (input [31:0] inst, writedata,
   wire brancheq, branchlt, branchgte;
   wire ssalu, ssmemadr, ssmemwrite;
   wire memread, memtoreg, MemWrite, alusrc, regwrite;
+  wire writeimm;
   wire [1:0] aluop; 
   wire [4:0] writereg, rs1, rs2, rd;
   wire [6:0] opcode;
@@ -85,9 +87,9 @@ module decode (input [31:0] inst, writedata,
   ControlUnit control (opcode, inst, funct3, alusrc, 
                        memtoreg, regwrite, memread, memwrite, 
                        ssalu, ssmemadr, ssmemwrite,
-                       brancheq, branchlt, branchgte, aluop, ImmGen);
+                       brancheq, branchlt, branchgte, aluop, ImmGen, writeimm);
   
-  Register_Bank Registers (clk, regwrite, rs1, rs2, rd, writedata, data1, data2); 
+  Register_Bank Registers (clk, regwrite, rs1, rs2, rd, writedata, data1, data2, ImmGen, writeimm); 
 
 endmodule
 
@@ -98,7 +100,8 @@ module ControlUnit (input [6:0] opcode,
                     output reg ssalu, ssmemadr, ssmemwrite,
                     output reg brancheq, branchlt, branchgte,
                     output reg [1:0] aluop, 
-                    output reg [31:0] ImmGen);
+                    output reg [31:0] ImmGen,
+                    output reg writeimm);
 
   always @(opcode) begin
     alusrc   <= 0;
@@ -114,6 +117,7 @@ module ControlUnit (input [6:0] opcode,
     branchgte <= 0;
     aluop    <= 0;
     ImmGen   <= 0; 
+    writeimm <= 0;
     case(opcode) 
       7'b0110011: begin // R type == 51
         regwrite <= 1;
@@ -157,6 +161,11 @@ module ControlUnit (input [6:0] opcode,
          memread <= 1;
          aluop <= 0;
       end
+            7'b0110111: begin // lui
+         regwrite <= 1;
+         writeimm <= 1;
+         ImmGen <= {inst[31:12], 12'b0};
+      end
 
 			7'b0100011: begin // sw == 35
         alusrc   <= 1;
@@ -178,7 +187,9 @@ endmodule
 module Register_Bank (input clk, regwrite, 
                       input [4:0] read_reg1, read_reg2, writereg, 
                       input [31:0] writedata, 
-                      output [31:0] read_data1, read_data2);
+                      output [31:0] read_data1, read_data2,
+                      input [31:0] ImmGen,
+                      input writeimm);
 
   integer i;
   reg [31:0] memory [0:31]; // 32 registers de 32 bits cada
@@ -194,7 +205,10 @@ module Register_Bank (input clk, regwrite,
 	
   always @(posedge clk) begin
     if (regwrite)
-      memory[writereg] <= writedata;
+        if (writeimm)
+            memory[writereg] <= ImmGen;
+        else
+            memory[writereg] <= writedata;
   end
   
 endmodule

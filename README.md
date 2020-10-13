@@ -2,9 +2,20 @@
 
 ## Integrantes
 Arthur Souto Lima - 2018055113
+Renato Reis Brasil - 2013031127
+
+## Problema 3 - Load Upper Immediate
+Para essa intrução foi criado um fio que liga o ImmGen diretamente ao banco de registradores. Além disso foi criado um bit de controle para definir se o valor a ser escrito no banco de registradores vai vir da entrada writedata ou da recém-criada ImmGen.
+
+O deslocamento dos bits é feito no módulo decode, da senguinte maneira: ImmGen <= {inst[31:12], 12'b0}. Portanto os últimos 20 bits da instrução são selecionados, e em seguida deslocados.
+
+Como essa instrução já existe no RISC-V, usamos o formato e opcode da especificação. A intrução tem tipo U, ou seja, [31:12] são os bits do imediato, [11:7] são os bits do registrador de destino e [6:0] o opcode. O opcode é 0110111.
 
 ## Problema 4 - Load With Increment
-Para implementar essa intrução bastou mudar a unidade de controle. 
+As operações básicas de soma e leitura na memória já estão implementadas. Portanto, para implementar essa intrução bastou mudar a unidade de controle. Como no caso da instrução Load Word, os bits memtoreg, regwrite e memread são definidos como 1. A diferença é que o alusrc é 0, já que a entrada da ALU vai ser os dois registradores de entrada. O aluop é zero, ou seja, soma.
+
+A intrução tem um formato parecido com o tipo S, com a diferença de que nos bits 11:7, em vez de conter o valor imediato, colocamos o registrador de destino. O opcode escolhido foi 0000111.
+
 
 ## Problema 6 - Store Sum
 A implementação dessa instrução exigiu três novos bits de controle, que são 0 para as demais instruções e 
