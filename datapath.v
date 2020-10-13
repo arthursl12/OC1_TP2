@@ -25,6 +25,10 @@ module fetch (input zero, rst, clk, brancheq, branchlt, branchgte, neg,
     inst_mem[2] <= 32'h00210233; // add  x4, x2, x2  ok
     inst_mem[3] <= 32'h00410287; // lwi x5, x2, x4 = lwi x5, 5, 10
     inst_mem[4] <= 32'hE3B392B7; // lui 
+    inst_mem[5] <= 32'h20E113;   // ori x2, x1, 2 
+    inst_mem[6] <= 32'h221293;    // slli x5, x4, 2 
+    inst_mem[7] <= 32'h520002;    // swap x4 x5
+    
     
     //inst_mem[3] <= 32'h00208273; // ss x1, x2, 4 OK
     //inst_mem[3] <= 32'h00110773 ; // ss x2, x1, 14
@@ -131,7 +135,14 @@ module ControlUnit (input [6:0] opcode,
       7'b0110011: begin // R type == 51
         regwrite <= 1;
         aluop    <= 2;
-			end
+        case (funct5)
+          5'b00001: begin
+            regwrite <= 1;
+            memwrite <= 1;
+            memread  <= 0;
+          end
+        endcase
+        end
 		  7'b1100011: begin // beq == 99
         case (funct3)
           3'b000: begin
@@ -152,11 +163,27 @@ module ControlUnit (input [6:0] opcode,
           end
         endcase
 			end
-			7'b0010011: begin // addi == 19
-        alusrc   <= 1;
-        regwrite <= 1;
-        ImmGen   <= {{20{inst[31]}},inst[31:20]};
-      end
+			7'b0010011: begin // addi/ori/slli == 19
+           	case (funct3)
+          		3'b000: begin //addi
+            	alusrc   <= 1;
+        		regwrite <= 1;
+        		ImmGen   <= {{20{inst[31]}},inst[31:20]};
+      			end
+          		3'b110: begin //ori
+            	alusrc   <= 1;
+        		regwrite <= 1;
+                writeimm <= 1;
+        		ImmGen   <= {{20{inst[31]}},inst[31:20]};
+      			end
+          		3'b001: begin //slli
+            	alusrc   <= 1;
+        		regwrite <= 1;
+                writeimm <= 1;
+                  ImmGen <= {inst[24:20], 1'b0};
+      			end
+            endcase
+		end  
 			7'b0000011: begin // lw == 3
         alusrc   <= 1;
         memtoreg <= 1;
