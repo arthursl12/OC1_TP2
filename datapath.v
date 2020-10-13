@@ -19,7 +19,7 @@ module fetch (input zero, rst, clk, brancheq, branchlt, branchgte, neg,
   assign inst = inst_mem[pc[31:2]];
 
   initial begin
-    // Exemplos
+
     inst_mem[0] <= 32'h00000000; // nop
     inst_mem[1] <= 32'h00500113; // addi x2, x0, 5  ok
     inst_mem[2] <= 32'h00210233; // add  x4, x2, x2  ok
@@ -28,30 +28,7 @@ module fetch (input zero, rst, clk, brancheq, branchlt, branchgte, neg,
     inst_mem[5] <= 32'h20E113;   // ori x2, x1, 2 
     inst_mem[6] <= 32'h221293;    // slli x5, x4, 2 
     inst_mem[7] <= 32'h520002;    // swap x4 x5
-    
-    
-    //inst_mem[3] <= 32'h00208273; // ss x1, x2, 4 OK
-    //inst_mem[3] <= 32'h00110773 ; // ss x2, x1, 14
-    
-    //inst_mem[3] <= 32'h00218473 ; // ss x3, x2, 8  
-    //inst_mem[4] <= 32'h0001A283;  // lw x5, 0(x3)
 
-
-    
-    //inst_mem[3] <= 32'h00210563; // beq x2,x2,50 OK
-    //inst_mem[3] <= 32'h00224563; // blt x4,x2,50 OK
-    //inst_mem[3] <= 32'h00414563; // blt x2,x4,50 OK
-    //inst_mem[3] <= 32'h00214563; // blt x2,x2,50 OK
-    //inst_mem[3] <= 32'h00215563; // bge x2,x2,50 OK
-    //inst_mem[3] <= 32'h00225563; // bge x4,x2,50 OK
-    //inst_mem[3] <= 32'h00415563; // bge x2,x4,50 OK
-
-    //inst_mem[1] <= 32'h00202223; // sw x2, 8(x0) ok
-    //inst_mem[1] <= 32'h0050a423; // sw x5, 8(x1) ok
-    //inst_mem[2] <= 32'h0000a003; // lw x1, x0(0) ok
-    //inst_mem[1] <= 32'hfff00113; // addi x2,x0,-1 ok
-    //inst_mem[2] <= 32'h00318133; // add x2, x3, x3 ok
-    //inst_mem[3] <= 32'h40328133; // sub x2, x5, x3 ok
   end
   
 endmodule
@@ -142,8 +119,8 @@ module ControlUnit (input [6:0] opcode,
             memread  <= 0;
           end
         endcase
-        end
-		  7'b1100011: begin // beq == 99
+      end
+      7'b1100011: begin // beq == 99
         case (funct3)
           3'b000: begin
             brancheq <= 1;
@@ -162,52 +139,51 @@ module ControlUnit (input [6:0] opcode,
             ImmGen   <= {{19{inst[31]}},inst[31],inst[7],inst[30:25],inst[11:8],1'b0};
           end
         endcase
-			end
-			7'b0010011: begin // addi/ori/slli == 19
-           	case (funct3)
-          		3'b000: begin //addi
-            	alusrc   <= 1;
-        		regwrite <= 1;
-        		ImmGen   <= {{20{inst[31]}},inst[31:20]};
-      			end
-          		3'b110: begin //ori
-            	alusrc   <= 1;
-        		regwrite <= 1;
-                writeimm <= 1;
-        		ImmGen   <= {{20{inst[31]}},inst[31:20]};
-      			end
-          		3'b001: begin //slli
-            	alusrc   <= 1;
-        		regwrite <= 1;
-                writeimm <= 1;
-                  ImmGen <= {inst[24:20], 1'b0};
-      			end
-            endcase
-		end  
-			7'b0000011: begin // lw == 3
+      end
+      7'b0010011: begin // addi/ori/slli == 19
+        case (funct3)
+          3'b000: begin //addi
+            alusrc   <= 1;
+            regwrite <= 1;
+            ImmGen   <= {{20{inst[31]}},inst[31:20]};
+          end
+          3'b110: begin //ori
+            alusrc   <= 1;
+            regwrite <= 1;
+            writeimm <= 1;
+            ImmGen   <= {{20{inst[31]}},inst[31:20]};
+          end
+          3'b001: begin //slli
+            alusrc   <= 1;
+            regwrite <= 1;
+            writeimm <= 1;
+            ImmGen <= {inst[24:20], 1'b0};
+          end
+        endcase
+      end  
+      7'b0000011: begin // lw == 3
         alusrc   <= 1;
         memtoreg <= 1;
         regwrite <= 1;
         memread  <= 1;
         ImmGen   <= {{20{inst[31]}},inst[31:20]};
       end
-            7'b0000111: begin // lwi
-         memtoreg <= 1;
-         regwrite <= 1;
-         memread <= 1;
-         aluop <= 0;
+      7'b0000111: begin // lwi
+        memtoreg <= 1;
+        regwrite <= 1;
+        memread <= 1;
+        aluop <= 0;
       end
-            7'b0110111: begin // lui
-         regwrite <= 1;
-         writeimm <= 1;
-         ImmGen <= {inst[31:12], 12'b0};
+      7'b0110111: begin // lui
+        regwrite <= 1;
+        writeimm <= 1;
+        ImmGen <= {inst[31:12], 12'b0};
       end
-            7'b1101111: begin // jump
-         branchnc <= 1;
-         ImmGen   <= {{20{inst[31]}},inst[10:1],inst[11],inst[19:12]};
+      7'b1101111: begin // jump
+        branchnc <= 1;
+        ImmGen   <= {{20{inst[31]}},inst[10:1],inst[11],inst[19:12]};
       end
-
-			7'b0100011: begin // sw == 35
+      7'b0100011: begin // sw == 35
         alusrc   <= 1;
         memwrite <= 1;
         ImmGen   <= {{20{inst[31]}},inst[31:25],inst[11:7]};
