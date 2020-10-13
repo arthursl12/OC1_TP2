@@ -1,11 +1,16 @@
 module fetch (input zero, rst, clk, brancheq, branchlt, branchgte, neg,
               input [31:0] sigext, 
-              output [31:0] inst);
+              output [31:0] inst,
+              input branchnc);
   
   wire [31:0] pc, pc_4, new_pc;
 
   assign pc_4 = 4 + pc; // pc+4  Adder
-  assign new_pc = ((brancheq & zero) || (branchlt & neg) || (branchgte & !neg)) ? pc_4 + sigext : pc_4; // new PC Mux
+  assign new_pc = ((brancheq & zero) 
+                || (branchlt & neg) 
+                || (branchgte & !neg)
+                || branchnc) 
+                ? pc_4 + sigext : pc_4; // new PC Mux
 
   PC program_counter(new_pc, clk, rst, pc);
 
@@ -64,9 +69,11 @@ module decode (input [31:0] inst, writedata,
                output ssalu, ssmemadr, ssmemwrite,
                output brancheq, branchlt, branchgte,
                output [1:0] aluop, 
-               output [9:0] funct);
+               output [9:0] funct,
+               output branchnc);
   
   wire brancheq, branchlt, branchgte;
+  wire branchnc;
   wire ssalu, ssmemadr, ssmemwrite;
   wire memread, memtoreg, MemWrite, alusrc, regwrite;
   wire writeimm;
@@ -87,7 +94,7 @@ module decode (input [31:0] inst, writedata,
   ControlUnit control (opcode, inst, funct3, alusrc, 
                        memtoreg, regwrite, memread, memwrite, 
                        ssalu, ssmemadr, ssmemwrite,
-                       brancheq, branchlt, branchgte, aluop, ImmGen, writeimm);
+                       brancheq, branchlt, branchgte, aluop, ImmGen, writeimm, branchnc);
   
   Register_Bank Registers (clk, regwrite, rs1, rs2, rd, writedata, data1, data2, ImmGen, writeimm); 
 
@@ -101,7 +108,8 @@ module ControlUnit (input [6:0] opcode,
                     output reg brancheq, branchlt, branchgte,
                     output reg [1:0] aluop, 
                     output reg [31:0] ImmGen,
-                    output reg writeimm);
+                    output reg writeimm,
+                    output reg branchnc);
 
   always @(opcode) begin
     alusrc   <= 0;
@@ -118,6 +126,7 @@ module ControlUnit (input [6:0] opcode,
     aluop    <= 0;
     ImmGen   <= 0; 
     writeimm <= 0;
+    branchnc <= 0;
     case(opcode) 
       7'b0110011: begin // R type == 51
         regwrite <= 1;
@@ -165,6 +174,10 @@ module ControlUnit (input [6:0] opcode,
          regwrite <= 1;
          writeimm <= 1;
          ImmGen <= {inst[31:12], 12'b0};
+      end
+            7'b1101111: begin // jump
+         branchnc <= 1;
+         ImmGen   <= {{20{inst[31]}},inst[10:1],inst[11],inst[19:12]};
       end
 
 			7'b0100011: begin // sw == 35
@@ -325,17 +338,18 @@ module mips (input clk, rst, output [31:0] writedata);
   wire [31:0] inst, sigext, data1, data2, aluout, readdata;
   wire zero, memread, memwrite, memtoreg, branch, alusrc;
   wire ssalu, ssmemadr, ssmemwrite;
+  wire branchnc;
   wire [9:0] funct;
   wire [1:0] aluop;
   
   // FETCH STAGE
-  fetch fetch (zero, rst, clk, brancheq, branchlt, branchgte, neg, sigext, inst);
+  fetch fetch (zero, rst, clk, brancheq, branchlt, branchgte, neg, sigext, inst, branchnc);
   
   // DECODE STAGE
   decode decode (inst, writedata, clk, data1, data2, sigext, alusrc, 
                  memread, memwrite, memtoreg, 
                  ssalu, ssmemadr, ssmemwrite, 
-                 brancheq, branchlt, branchgte, aluop, funct);   
+                 brancheq, branchlt, branchgte, aluop, funct, branchnc);   
   
   // EXECUTE STAGE
   execute execute (data1, data2, sigext, alusrc, aluop, funct, ssalu, zero, aluout, neg);

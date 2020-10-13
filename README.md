@@ -2,6 +2,7 @@
 
 ## Integrantes
 Arthur Souto Lima - 2018055113
+
 Renato Reis Brasil - 2013031127
 
 ## Problema 3 - Load Upper Immediate
@@ -54,3 +55,20 @@ o módulo de fetch avisando que era um branch de "maior que" e adicionar uma con
 incrementar o PC utilizando a negação do flag de resultado negativo da instrução BLT. Para que 
 o igual também fizesse o branch, no módulo de controle, ao identificarmos essa instrução BGE, 
 ativamos também a flag de branch on equal, além da recém criada flag de branch quando maior.
+
+## Problema 9 - Jump
+Para essa instrução foi preciso criar um bit de controle que fizesse o branch incondicionalmente.
+Esse bit foi chamado branchnc (branch não-condicional), e liga o módulo decode ao fetch. Dentro do
+módulo fetch, na parte onde é decidida a próxima instrução, foi adicionada a situação em que o branchnc está ativado.
+
+No restante a instrução é parecida com os outros branchs: os outros bits ou são zero ou não importam, e 
+por isso foram deixados todos iguais a zero.
+
+O formatado da instrução é o tipo UJ, o mesmo da JAL. Os 5 bits correspondentes ao 
+registrador de destino são iguais a zero, apesar de isso não ter importância, já 
+que o bit de controle regwrite está desligado.
+
+![Formatação Jump](https://imgur.com/OOo0brx.png)
+
+O opcode escolhido foi 1101111, o mesmo do JAL. Isso não é um problema, já que a instrução 
+JAL não está presente nesse processador.
