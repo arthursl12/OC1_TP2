@@ -1,4 +1,6 @@
-# OC1_TP2
+## DCC006: Organização de computadores I
+
+# Trabalho Prático #2
 
 ## Integrantes
 Arthur Souto Lima - 2018055113
