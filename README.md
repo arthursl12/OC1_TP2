@@ -3,6 +3,9 @@
 ## Integrantes
 Arthur Souto Lima - 2018055113
 
+## Problema 4 - Load With Increment
+Para implementar essa intrução bastou mudar a unidade de controle. 
+
 ## Problema 6 - Store Sum
 A implementação dessa instrução exigiu três novos bits de controle, que são 0 para as demais instruções e 
 1 para store sum. Eles são descritos a seguir:

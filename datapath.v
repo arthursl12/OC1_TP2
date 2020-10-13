@@ -18,12 +18,15 @@ module fetch (input zero, rst, clk, brancheq, branchlt, branchgte, neg,
     inst_mem[0] <= 32'h00000000; // nop
     inst_mem[1] <= 32'h00500113; // addi x2, x0, 5  ok
     inst_mem[2] <= 32'h00210233; // add  x4, x2, x2  ok
+    inst_mem[3] <= 32'h00410287; // lwi x5, x2, x4 = lwi x5, 5, 10
     
     //inst_mem[3] <= 32'h00208273; // ss x1, x2, 4 OK
     //inst_mem[3] <= 32'h00110773 ; // ss x2, x1, 14
     
-    inst_mem[3] <= 32'h00218473 ; // ss x3, x2, 8  
-    inst_mem[4] <= 32'h0001A283;  // lw x5, 0(x3)
+    //inst_mem[3] <= 32'h00218473 ; // ss x3, x2, 8  
+    //inst_mem[4] <= 32'h0001A283;  // lw x5, 0(x3)
+
+
     
     //inst_mem[3] <= 32'h00210563; // beq x2,x2,50 OK
     //inst_mem[3] <= 32'h00224563; // blt x4,x2,50 OK
@@ -148,6 +151,13 @@ module ControlUnit (input [6:0] opcode,
         memread  <= 1;
         ImmGen   <= {{20{inst[31]}},inst[31:20]};
       end
+            7'b0000111: begin // lwi
+         memtoreg <= 1;
+         regwrite <= 1;
+         memread <= 1;
+         aluop <= 0;
+      end
+
 			7'b0100011: begin // sw == 35
         alusrc   <= 1;
         memwrite <= 1;
